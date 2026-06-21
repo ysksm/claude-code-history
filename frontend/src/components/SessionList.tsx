@@ -1,0 +1,108 @@
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api } from "../api";
+import { fmt, fmtDur } from "../format";
+import { useAsync } from "../useAsync";
+import { usePeriodFilter } from "../period";
+import { DiffStat } from "./DiffStat";
+import { loadModel, estimate, fmtMoney } from "../valueModel";
+import type { SessionRow } from "../types";
+
+type SortKey = keyof Pick<SessionRow, "total_tokens" | "tool_calls" | "prompts" | "duration_sec" | "day">;
+
+export function SessionList({ onSelect }: { onSelect: (id: string) => void }) {
+  const { from, to, control } = usePeriodFilter();
+  const model = loadModel();
+  const { data, error, loading } = useAsync(() => api.sessions({ from, to }), [from, to]);
+  const navigate = useNavigate();
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [q, setQ] = useState("");
+  const [project, setProject] = useState("");
+
+  const selectedIds = useMemo(() => Object.keys(selected).filter((id) => selected[id]), [selected]);
+  const toggle = (id: string) => setSelected((p) => ({ ...p, [id]: !p[id] }));
+  const compare = () => navigate(`/sessions/compare?ids=${selectedIds.join(",")}`);
+  const [sort, setSort] = useState<SortKey>("total_tokens");
+
+  const projects = useMemo(
+    () => [...new Set((data ?? []).map((s) => s.project))].sort(),
+    [data],
+  );
+
+  const rows = useMemo(() => {
+    let r = data ?? [];
+    if (project) r = r.filter((s) => s.project === project);
+    if (q.trim()) {
+      const k = q.toLowerCase();
+      r = r.filter((s) => (s.ai_title || "").toLowerCase().includes(k) ||
+        s.project.toLowerCase().includes(k) || s.session_id.includes(k));
+    }
+    return [...r].sort((a, b) => Number(b[sort]) - Number(a[sort]));
+  }, [data, q, project, sort]);
+
+  const Th = ({ k, label }: { k: SortKey; label: string }) => (
+    <th className="sortable" onClick={() => setSort(k)}>{label}{sort === k ? " ▾" : ""}</th>
+  );
+
+  return (
+    <div className="page">
+      <div className="toolbar">{control}</div>
+      <div className="toolbar">
+        <input placeholder="Search title / project / id…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <select value={project} onChange={(e) => setProject(e.target.value)}>
+          <option value="">All projects</option>
+          {projects.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <span className="muted">{rows.length} sessions</span>
+        <button className="btn-primary" disabled={selectedIds.length < 2} onClick={compare}>
+          Compare selected
+        </button>
+        <span className="muted">{selectedIds.length} selected</span>
+      </div>
+
+      {loading && <p className="muted">loading…</p>}
+      {error && <p className="error">{error}</p>}
+
+      <div className="panel">
+        <table>
+          <thead>
+            <tr>
+              <th></th><th>title</th><th>project</th>
+              <Th k="day" label="day" />
+              <Th k="duration_sec" label="duration" />
+              <Th k="prompts" label="prompts" />
+              <Th k="tool_calls" label="tools" />
+              <th>code (lines)</th>
+              <th>est. value</th>
+              <Th k="total_tokens" label="total (tok)" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((s) => (
+              <tr key={s.session_id} className="clickable" onClick={() => onSelect(s.session_id)}>
+                <td onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" checked={!!selected[s.session_id]}
+                    onChange={() => toggle(s.session_id)} />
+                </td>
+                <td className="title">
+                  {s.ai_title || <span className="muted">{s.session_id.slice(0, 8)}</span>}
+                  {s.max_parallel >= 2 && (
+                    <span className="par-badge" title={`up to ${s.max_parallel} subagents ran in parallel`}>∥{s.max_parallel}</span>
+                  )}
+                </td>
+                <td>{s.project}</td>
+                <td>{s.day}</td>
+                <td>{fmtDur(s.duration_sec)}</td>
+                <td>{fmt(s.prompts)}</td>
+                <td>{fmt(s.tool_calls)}</td>
+                <td><DiffStat added={s.code_added} removed={s.code_removed} /></td>
+                <td className="muted">{s.code_added ? fmtMoney(estimate(s.code_added, model).money, model.currency) : ""}</td>
+                <td>{fmt(s.total_tokens)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

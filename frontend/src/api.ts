@@ -1,0 +1,48 @@
+import type {
+  Overview, ProjectRow, SessionRow, SessionMeta, EventRow, MinuteRow, FilterRow,
+  McpServerStatus, TimeRow, DailyTime, UsageWindows,
+} from "./types";
+
+type Params = Record<string, string | number | boolean | undefined>;
+
+async function get<T>(path: string, params: Params = {}): Promise<T[]> {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== "") qs.set(k, String(v));
+  }
+  const url = `/api/${path}${qs.toString() ? "?" + qs : ""}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${path}: ${r.status} ${await r.text()}`);
+  return (await r.json()) as T[];
+}
+
+const one = async <T>(path: string, params?: Params): Promise<T | undefined> =>
+  (await get<T>(path, params))[0];
+
+export const api = {
+  overview: (p?: Params) => one<Overview>("overview", { sidechain: "include", ...p }),
+  projects: (p?: Params) => get<ProjectRow>("projects", { sidechain: "include", ...p }),
+  filters: () => get<FilterRow>("filters"),
+  sessions: (p?: Params) => get<SessionRow>("sessions", { sidechain: "include", ...p }),
+  sessionMeta: (id: string) => one<SessionMeta>("session_meta", { id }),
+  events: (id: string, sidechain: boolean) =>
+    get<EventRow>("session", { id, sidechain: sidechain ? "include" : "" }),
+  minutes: (id: string) => get<MinuteRow>("session_minutes", { id }),
+  timeBreakdown: (dim: string, p?: Params) => get<TimeRow>("time_breakdown", { sidechain: "include", dim, ...p }),
+  timeDaily: (p?: Params) => get<DailyTime>("time_daily", { sidechain: "include", ...p }),
+  usageWindows: () => one<UsageWindows>("usage_windows"),
+  mcpServer: async (): Promise<McpServerStatus> => {
+    const r = await fetch("/api/mcp_server");
+    if (!r.ok) throw new Error(`mcp_server: ${r.status} ${await r.text()}`);
+    return (await r.json()) as McpServerStatus;
+  },
+  mcpServerSet: async (enabled: boolean): Promise<McpServerStatus> => {
+    const r = await fetch("/api/mcp_server", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    if (!r.ok) throw new Error(`mcp_server: ${r.status} ${await r.text()}`);
+    return (await r.json()) as McpServerStatus;
+  },
+};
