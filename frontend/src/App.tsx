@@ -5,6 +5,8 @@ import { SessionDetail } from "./components/SessionDetail";
 import { ProjectsList } from "./routes/ProjectsList";
 import { ProjectsCompare } from "./routes/ProjectsCompare";
 import { ProjectOverview } from "./routes/ProjectOverview";
+import { SessionsCompare } from "./routes/SessionsCompare";
+import { McpView } from "./routes/McpView";
 
 function OverviewRoute() {
   const navigate = useNavigate();
@@ -46,6 +48,9 @@ export function App() {
           <NavLink to="/sessions" className={({ isActive }) => (isActive ? "active" : "")}>
             Sessions
           </NavLink>
+          <NavLink to="/mcp" className={({ isActive }) => (isActive ? "active" : "")}>
+            MCP
+          </NavLink>
         </nav>
       </header>
 
@@ -56,7 +61,9 @@ export function App() {
           <Route path="/projects/compare" element={<ProjectsCompare />} />
           <Route path="/projects/:slug" element={<ProjectOverview />} />
           <Route path="/sessions" element={<SessionListRoute />} />
+          <Route path="/sessions/compare" element={<SessionsCompare />} />
           <Route path="/sessions/:id" element={<SessionDetailRoute />} />
+          <Route path="/mcp" element={<McpView />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

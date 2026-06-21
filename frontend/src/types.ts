@@ -6,6 +6,8 @@ export interface Overview {
   tool_calls: number;
   plugin_tool_calls: number;
   subagent_calls: number;
+  code_added: number;
+  code_removed: number;
   input_tokens: number;
   output_tokens: number;
   cache_read_tokens: number;
@@ -17,6 +19,8 @@ export interface ProjectRow {
   project_slug: string;
   sessions: number;
   tool_calls: number;
+  code_added: number;
+  code_removed: number;
   input_tokens: number;
   output_tokens: number;
   cache_read: number;
@@ -31,6 +35,7 @@ export interface SessionRow {
   prompts: number;
   tool_calls: number;
   total_tokens: number;
+  max_parallel: number;
   day: string;
 }
 
@@ -60,6 +65,9 @@ export interface EventRow {
   kind: "prompt" | "assistant" | "tool";
   label: string;
   category: string;
+  detail: string;
+  in_lines: number;
+  del_lines: number;
   total_tokens: number;
   input_tokens: number;
   output_tokens: number;
@@ -79,6 +87,17 @@ export interface MinuteRow {
   in_tokens: number;
   tool_ms: number;
   cum_tokens: number;
+}
+
+export interface McpServerStatus {
+  binary: string;
+  command: string;
+  remove_command: string;
+  claude_available: boolean;
+  installed: boolean;
+  action_ok?: boolean;
+  action_output?: string;
+  action_error?: string;
 }
 
 export interface FilterRow {

@@ -1,5 +1,6 @@
 import type {
   Overview, ProjectRow, SessionRow, SessionMeta, EventRow, MinuteRow, FilterRow,
+  McpServerStatus,
 } from "./types";
 
 type Params = Record<string, string | number | boolean | undefined>;
@@ -27,4 +28,18 @@ export const api = {
   events: (id: string, sidechain: boolean) =>
     get<EventRow>("session", { id, sidechain: sidechain ? "include" : "" }),
   minutes: (id: string) => get<MinuteRow>("session_minutes", { id }),
+  mcpServer: async (): Promise<McpServerStatus> => {
+    const r = await fetch("/api/mcp_server");
+    if (!r.ok) throw new Error(`mcp_server: ${r.status} ${await r.text()}`);
+    return (await r.json()) as McpServerStatus;
+  },
+  mcpServerSet: async (enabled: boolean): Promise<McpServerStatus> => {
+    const r = await fetch("/api/mcp_server", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    if (!r.ok) throw new Error(`mcp_server: ${r.status} ${await r.text()}`);
+    return (await r.json()) as McpServerStatus;
+  },
 };

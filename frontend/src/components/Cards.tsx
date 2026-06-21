@@ -1,4 +1,6 @@
-export interface Card { label: string; value: string; sub?: string; }
+import type { ReactNode } from "react";
+
+export interface Card { label: string; value: ReactNode; sub?: string; }
 
 export function Cards({ cards }: { cards: Card[] }) {
   return (

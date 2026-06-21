@@ -2,8 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { fmt, fmtDur, fmtMs, fmtClock, fmtDateTime, catColor } from "../format";
 import { useAsync } from "../useAsync";
+import type { EventRow } from "../types";
 import { Cards } from "./Cards";
 import { CumulativeChart } from "./CumulativeChart";
+import { Legend } from "./Legend";
+import { DiffStat } from "./DiffStat";
 import { Waterfall, type WfMode, type WfScale } from "./Waterfall";
 
 function useWidth() {
@@ -30,33 +33,74 @@ function Seg<T extends string>({ value, options, onChange }: {
   );
 }
 
+// Multi-select chip group: any number of values can be active. Empty = "all".
+function MultiSeg({ options, selected, onToggle }: {
+  options: [string, string][]; selected: Set<string>; onToggle: (v: string) => void;
+}) {
+  return (
+    <span className="seg">
+      {options.map(([v, label]) => (
+        <button key={v} className={selected.has(v) ? "active" : ""} onClick={() => onToggle(v)}>{label}</button>
+      ))}
+    </span>
+  );
+}
+
+const KIND_OPTS: [string, string][] = [["prompt", "prompt"], ["assistant", "assistant"], ["tool", "tool"]];
+
+// Toggle a value in/out of a set, returning a new set.
+function toggleIn(set: Set<string>, v: string): Set<string> {
+  const n = new Set(set);
+  if (n.has(v)) n.delete(v); else n.add(v);
+  return n;
+}
+
+// Pass if the event matches the selected kinds AND categories (empty set = no filter).
+function passKindCat(e: EventRow, kinds: Set<string>, cats: Set<string>): boolean {
+  return (kinds.size === 0 || kinds.has(e.kind)) && (cats.size === 0 || cats.has(e.category));
+}
+
 export function SessionDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const [sidechain, setSidechain] = useState(true);
   const [mode, setMode] = useState<WfMode>("seq");
   const [scale, setScale] = useState<WfScale>("log");
-  const [kindFilter, setKindFilter] = useState<"all" | "tool" | "assistant">("all");
   const [wfOpen, setWfOpen] = useState(true);
+  const [wfKinds, setWfKinds] = useState<Set<string>>(new Set());
+  const [wfCats, setWfCats] = useState<Set<string>>(new Set());
   const [wfErr, setWfErr] = useState(false);
   const [etOpen, setEtOpen] = useState(true);
-  const [etKind, setEtKind] = useState<"all" | "prompt" | "assistant" | "tool">("all");
+  const [etKinds, setEtKinds] = useState<Set<string>>(new Set());
+  const [etCats, setEtCats] = useState<Set<string>>(new Set());
   const [etErr, setEtErr] = useState(false);
   const [etSearch, setEtSearch] = useState("");
+  const [lgOpen, setLgOpen] = useState(false);
   const { ref, w } = useWidth();
 
   const meta = useAsync(() => api.sessionMeta(id), [id]);
   const events = useAsync(() => api.events(id, sidechain), [id, sidechain]);
   const minutes = useAsync(() => api.minutes(id), [id]);
 
+  // Distinct categories present in this session, for the category filter chips.
+  const catOpts = useMemo<[string, string][]>(
+    () => [...new Set((events.data ?? []).map((e) => e.category))].sort().map((c) => [c, c]),
+    [events.data],
+  );
+
+  const wfEvents = useMemo(() => {
+    let r = (events.data ?? []).filter((e) => passKindCat(e, wfKinds, wfCats));
+    if (wfErr) r = r.filter((e) => e.is_error);
+    return r;
+  }, [events.data, wfKinds, wfCats, wfErr]);
+
   const tableRows = useMemo(() => {
-    let r = events.data ?? [];
-    if (etKind !== "all") r = r.filter((e) => e.kind === etKind);
+    let r = (events.data ?? []).filter((e) => passKindCat(e, etKinds, etCats));
     if (etErr) r = r.filter((e) => e.is_error);
     if (etSearch.trim()) {
       const k = etSearch.toLowerCase();
       r = r.filter((e) => (e.label || "").toLowerCase().includes(k) || e.category.toLowerCase().includes(k));
     }
     return r;
-  }, [events.data, etKind, etErr, etSearch]);
+  }, [events.data, etKinds, etCats, etErr, etSearch]);
 
   const m = meta.data;
   return (
@@ -95,6 +139,14 @@ export function SessionDetail({ id, onBack }: { id: string; onBack: () => void }
       </div>
 
       <div className="panel">
+        <div className="acc-head" role="button" onClick={() => setLgOpen((o) => !o)}>
+          <span className="acc-caret">{lgOpen ? "▾" : "▸"}</span>
+          <h2>Legend <small>kind / category の分類と説明</small></h2>
+        </div>
+        {lgOpen && <Legend />}
+      </div>
+
+      <div className="panel">
         <div className="acc-head" role="button" onClick={() => setWfOpen((o) => !o)}>
           <span className="acc-caret">{wfOpen ? "▾" : "▸"}</span>
           <h2>Waterfall <small>bar length = duration</small></h2>
@@ -104,21 +156,27 @@ export function SessionDetail({ id, onBack }: { id: string; onBack: () => void }
             <div className="acc-filters">
               <Seg value={mode} onChange={setMode} options={[["seq", "sequential"], ["real", "real-time"]]} />
               <Seg value={scale} onChange={setScale} options={[["log", "log"], ["lin", "linear"]]} />
-              <Seg value={kindFilter} onChange={setKindFilter}
-                options={[["all", "all"], ["tool", "tools"], ["assistant", "assistant"]]} />
               <label className="chk">
                 <input type="checkbox" checked={wfErr} onChange={(e) => setWfErr(e.target.checked)} />
                 errors only
               </label>
             </div>
+            <div className="acc-filters">
+              <span className="filt-group"><span className="muted">kind</span>
+                <MultiSeg options={KIND_OPTS} selected={wfKinds} onToggle={(v) => setWfKinds((s) => toggleIn(s, v))} /></span>
+              <span className="filt-group"><span className="muted">category</span>
+                <MultiSeg options={catOpts} selected={wfCats} onToggle={(v) => setWfCats((s) => toggleIn(s, v))} /></span>
+              <span className="muted">複数選択可・未選択=すべて</span>
+            </div>
             <p className="hint">
               {mode === "seq"
                 ? "x = cumulative wall-clock duration (idle gaps removed)"
                 : "x = real time from session start (shows idle gaps)"} · {scale} scale
+              {" · "}{wfEvents.length} events
             </p>
             {events.loading && <p className="muted">loading events…</p>}
             {events.error && <p className="error">{events.error}</p>}
-            {events.data && <Waterfall events={events.data} mode={mode} scale={scale} kindFilter={kindFilter} errorsOnly={wfErr} width={w - 28} />}
+            {events.data && <Waterfall events={wfEvents} mode={mode} scale={scale} width={w - 28} />}
           </>
         )}
       </div>
@@ -133,12 +191,17 @@ export function SessionDetail({ id, onBack }: { id: string; onBack: () => void }
             <div className="acc-filters">
               <input type="text" placeholder="Search label / category…" value={etSearch}
                 onChange={(e) => setEtSearch(e.target.value)} />
-              <Seg value={etKind} onChange={setEtKind}
-                options={[["all", "all"], ["prompt", "prompt"], ["assistant", "assistant"], ["tool", "tool"]]} />
               <label className="chk">
                 <input type="checkbox" checked={etErr} onChange={(e) => setEtErr(e.target.checked)} />
                 errors only
               </label>
+            </div>
+            <div className="acc-filters">
+              <span className="filt-group"><span className="muted">kind</span>
+                <MultiSeg options={KIND_OPTS} selected={etKinds} onToggle={(v) => setEtKinds((s) => toggleIn(s, v))} /></span>
+              <span className="filt-group"><span className="muted">category</span>
+                <MultiSeg options={catOpts} selected={etCats} onToggle={(v) => setEtCats((s) => toggleIn(s, v))} /></span>
+              <span className="muted">複数選択可・未選択=すべて</span>
             </div>
             <table>
               <thead><tr><th>seq</th><th>t</th><th>start</th><th>end</th><th>kind</th><th>label</th><th>category</th><th>tokens</th><th>duration</th><th>err</th></tr></thead>
@@ -151,6 +214,8 @@ export function SessionDetail({ id, onBack }: { id: string; onBack: () => void }
                     <td>{e.kind}</td>
                     <td className="title">
                       <span className="dot" style={{ background: catColor(e.category) }} />{e.label}
+                      <DiffStat added={e.in_lines} removed={e.del_lines} />
+                      {e.detail && <div className="ev-detail" title={e.detail}>{e.detail}</div>}
                     </td>
                     <td>{e.category}</td>
                     <td>{e.total_tokens ? fmt(e.total_tokens) : ""}</td>

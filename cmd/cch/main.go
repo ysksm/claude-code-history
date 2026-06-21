@@ -13,6 +13,7 @@ import (
 
 	"github.com/ysksm/claude-code-history/internal/ddb"
 	"github.com/ysksm/claude-code-history/internal/extract"
+	"github.com/ysksm/claude-code-history/internal/mcpserver"
 	"github.com/ysksm/claude-code-history/internal/report"
 	"github.com/ysksm/claude-code-history/internal/server"
 	"github.com/ysksm/claude-code-history/internal/source"
@@ -33,6 +34,8 @@ func main() {
 		err = cmdExport(os.Args[2:])
 	case "serve":
 		err = cmdServe(os.Args[2:])
+	case "mcp":
+		err = cmdMCP(os.Args[2:])
 	case "sql":
 		err = cmdSQL(os.Args[2:])
 	case "session", "timeline":
@@ -59,6 +62,7 @@ USAGE
   cch report [NAME|all] [--format F] [--out F] Print an analysis (default: overview)
   cch export [--format F] [--out DIR]          Dump all views/tables (csv|json|parquet)
   cch serve  [--port N] [--data DIR]           Start the interactive dashboard
+  cch mcp    [--data DIR]                       Start the MCP server (stdio) for reports / retrospectives
   cch session ID [--bucket SEC] [--format F]   Timeline of one session (events or time-slices)
   cch sql    "SELECT ..." [--format F]         Run an ad-hoc query
 
@@ -234,6 +238,23 @@ func cmdServe(args []string) error {
 		return err
 	}
 	return server.Serve(context.Background(), p, *port)
+}
+
+func cmdMCP(args []string) error {
+	fs := flag.NewFlagSet("mcp", flag.ExitOnError)
+	dataDir := fs.String("data", "", "working data dir")
+	fs.Parse(args)
+	if err := mustDuckDB(); err != nil {
+		return err
+	}
+	p, err := resolve("", *dataDir)
+	if err != nil {
+		return err
+	}
+	if err := dbReady(p); err != nil {
+		return err
+	}
+	return mcpserver.Serve(context.Background(), p)
 }
 
 func cmdSQL(args []string) error {

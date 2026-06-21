@@ -16,6 +16,7 @@ CREATE OR REPLACE VIEW v_tool_timing AS
 SELECT
   c.id, c.session_id, c.project_slug, c.name, c.category, c.plugin,
   c.mcp_server, c.skill, c.subagent, c.is_sidechain, c.model,
+  c.detail, c.in_lines, c.del_lines,
   c.ts_ms AS call_ms, r.ts_ms AS result_ms,
   (r.ts_ms - c.ts_ms) AS duration_ms,
   r.is_error, r.output_len
@@ -255,7 +256,7 @@ WITH ev AS (
   -- user prompts / slash commands
   SELECT session_id, ts_ms, 'prompt' AS kind,
     CASE WHEN kind='command' THEN '/'||command ELSE 'prompt' END AS label,
-    'user' AS category,
+    'user' AS category, ''::VARCHAR AS detail, 0::BIGINT AS in_lines, 0::BIGINT AS del_lines,
     0::BIGINT AS input_tokens, 0::BIGINT AS output_tokens, 0::BIGINT AS cache_read,
     0::BIGINT AS total_tokens, NULL::BIGINT AS duration_ms, FALSE AS is_error,
     text_len AS size, is_sidechain, 0 AS ord
@@ -264,20 +265,20 @@ WITH ev AS (
   -- assistant turns (carry the token accounting + the step latency in duration_ms)
   SELECT session_id, ts_ms, 'assistant' AS kind,
     coalesce(nullif(model,''),'assistant') AS label,
-    'assistant' AS category,
+    'assistant' AS category, ''::VARCHAR AS detail, 0::BIGINT AS in_lines, 0::BIGINT AS del_lines,
     input_tokens, output_tokens, cache_read, total_tokens,
     step_ms AS duration_ms, FALSE AS is_error, text_len AS size, is_sidechain, 1 AS ord
   FROM v_messages WHERE type='assistant'
   UNION ALL
   -- tool calls (duration is wall-clock call->result)
   SELECT session_id, call_ms AS ts_ms, 'tool' AS kind,
-    name AS label, category,
+    name AS label, category, detail, in_lines, del_lines,
     0,0,0,0, duration_ms, coalesce(is_error,FALSE), output_len AS size, is_sidechain, 2 AS ord
   FROM v_tool_timing
 )
 SELECT
   session_id, ts_ms, to_timestamp(ts_ms/1000.0) AS t,
-  kind, label, category,
+  kind, label, category, detail, in_lines, del_lines,
   input_tokens, output_tokens, cache_read, total_tokens,
   duration_ms, is_error, size, is_sidechain,
   row_number() OVER w AS seq,

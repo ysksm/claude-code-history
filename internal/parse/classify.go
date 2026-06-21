@@ -102,3 +102,73 @@ func strField(raw json.RawMessage, key string) string {
 	}
 	return ""
 }
+
+// ToolDetail extracts a short human-readable summary of a tool_use input and,
+// for writing tools, GitHub-style added/removed line counts. detail is a single
+// line capped at 300 runes (e.g. the Bash command, the target file path).
+func ToolDetail(name string, input json.RawMessage) (detail string, addLines, delLines int) {
+	switch name {
+	case "Bash", "BashOutput", "KillBash", "KillShell":
+		detail = strField(input, "command")
+	case "Write":
+		detail = strField(input, "file_path")
+		addLines = countLines(strField(input, "content"))
+	case "Edit":
+		detail = strField(input, "file_path")
+		addLines = countLines(strField(input, "new_string"))
+		delLines = countLines(strField(input, "old_string"))
+	case "MultiEdit":
+		detail = strField(input, "file_path")
+		addLines, delLines = multiEditLines(input)
+	case "Read", "NotebookEdit", "LS":
+		detail = strField(input, "file_path")
+	case "Grep", "Glob":
+		detail = strField(input, "pattern")
+	case "Skill":
+		detail = strField(input, "skill")
+	case "Agent", "Workflow", "TaskCreate", "TaskUpdate":
+		detail = strField(input, "description")
+	case "WebFetch":
+		detail = strField(input, "url")
+	case "WebSearch":
+		detail = strField(input, "query")
+	default:
+		if strings.HasPrefix(name, "mcp__") {
+			for _, k := range []string{"url", "query", "uid", "selector", "command", "function"} {
+				if v := strField(input, k); v != "" {
+					detail = v
+					break
+				}
+			}
+		}
+	}
+	detail = strings.TrimSpace(strings.ReplaceAll(detail, "\n", " "))
+	if r := []rune(detail); len(r) > 300 {
+		detail = string(r[:300]) + "…"
+	}
+	return detail, addLines, delLines
+}
+
+func countLines(s string) int {
+	if s == "" {
+		return 0
+	}
+	return strings.Count(s, "\n") + 1
+}
+
+func multiEditLines(input json.RawMessage) (add, del int) {
+	var v struct {
+		Edits []struct {
+			OldString string `json:"old_string"`
+			NewString string `json:"new_string"`
+		} `json:"edits"`
+	}
+	if json.Unmarshal(input, &v) != nil {
+		return 0, 0
+	}
+	for _, e := range v.Edits {
+		add += countLines(e.NewString)
+		del += countLines(e.OldString)
+	}
+	return add, del
+}

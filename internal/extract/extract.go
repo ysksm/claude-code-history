@@ -192,6 +192,7 @@ func processAssistant(r parse.Record, sess *sessionMeta, pluginNames []string, w
 		case "tool_use":
 			nTool++
 			ti := parse.Classify(b.Name, b.Input, pluginNames)
+			detail, addLines, delLines := parse.ToolDetail(b.Name, b.Input)
 			w.write("tool_calls", map[string]any{
 				"id":             b.ID,
 				"session_id":     sess.SessionID,
@@ -207,6 +208,9 @@ func processAssistant(r parse.Record, sess *sessionMeta, pluginNames []string, w
 				"subagent":       ti.Subagent,
 				"is_sidechain":   r.IsSidechain,
 				"input_len":      len(b.Input),
+				"detail":         detail,
+				"in_lines":       addLines,
+				"del_lines":      delLines,
 				"model":          m.Model,
 			})
 			res.Tools++

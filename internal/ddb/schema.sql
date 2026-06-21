@@ -20,7 +20,7 @@ SELECT * FROM read_json('tool_calls.ndjson', format='newline_delimited', columns
   'id':'VARCHAR','session_id':'VARCHAR','project_slug':'VARCHAR','ts':'VARCHAR','ts_ms':'BIGINT',
   'assistant_uuid':'VARCHAR','name':'VARCHAR','category':'VARCHAR','plugin':'VARCHAR',
   'mcp_server':'VARCHAR','skill':'VARCHAR','subagent':'VARCHAR','is_sidechain':'BOOLEAN',
-  'input_len':'BIGINT','model':'VARCHAR'});
+  'input_len':'BIGINT','detail':'VARCHAR','in_lines':'BIGINT','del_lines':'BIGINT','model':'VARCHAR'});
 
 CREATE OR REPLACE TABLE tool_results AS
 SELECT * FROM read_json('tool_results.ndjson', format='newline_delimited', columns={

@@ -9,8 +9,6 @@ interface Props {
   events: EventRow[];
   mode: WfMode;
   scale: WfScale;
-  kindFilter: "all" | "tool" | "assistant";
-  errorsOnly?: boolean;
   width: number;
 }
 
@@ -22,15 +20,12 @@ const PAD_R = 40;
 const PAD_T = 26;
 const CAP = 1000;
 
-export function Waterfall({ events, mode, scale, kindFilter, errorsOnly, width }: Props) {
+export function Waterfall({ events, mode, scale, width }: Props) {
   const [tip, setTip] = useState<Tip | null>(null);
   const ref = useRef<SVGSVGElement>(null);
 
-  const evs = useMemo(() => {
-    let f = kindFilter === "all" ? events : events.filter((e) => e.kind === kindFilter);
-    if (errorsOnly) f = f.filter((e) => e.is_error);
-    return f.slice(0, CAP);
-  }, [events, kindFilter, errorsOnly]);
+  // Filtering happens in the parent; here we just cap the row count.
+  const evs = useMemo(() => events.slice(0, CAP), [events]);
 
   const layout = useMemo(() => {
     const chartW = Math.max(200, width - PAD_L - PAD_R);

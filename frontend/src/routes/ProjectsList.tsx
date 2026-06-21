@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { fmt, fmtDur } from "../format";
 import { useAsync } from "../useAsync";
+import { DiffStat } from "../components/DiffStat";
 import type { SessionRow } from "../types";
 
 export function ProjectsList() {
@@ -64,7 +65,7 @@ export function ProjectsList() {
         <table>
           <thead>
             <tr>
-              <th></th><th>project</th><th>sessions</th><th>tool calls</th><th>output</th><th>total tokens</th>
+              <th></th><th>project</th><th>sessions</th><th>tool calls</th><th>code</th><th>output</th><th>total tokens</th>
             </tr>
           </thead>
           <tbody>
@@ -93,6 +94,7 @@ export function ProjectsList() {
                   </td>
                   <td>{fmt(p.sessions)}</td>
                   <td>{fmt(p.tool_calls)}</td>
+                  <td><DiffStat added={p.code_added} removed={p.code_removed} /></td>
                   <td>{fmt(p.output_tokens)}</td>
                   <td>{fmt(p.total_tokens)}</td>
                 </tr>,
@@ -107,10 +109,14 @@ export function ProjectsList() {
                           <td></td>
                           <td className="title">
                             {s.ai_title || <span className="muted">{s.session_id.slice(0, 8)}</span>}
+                            {s.max_parallel >= 2 && (
+                              <span className="par-badge" title={`up to ${s.max_parallel} subagents ran in parallel`}>∥{s.max_parallel}</span>
+                            )}
                             <span className="meta"> · {s.day} · {fmtDur(s.duration_sec)}</span>
                           </td>
                           <td></td>
                           <td className="meta">{fmt(s.tool_calls)}</td>
+                          <td></td>
                           <td></td>
                           <td className="meta">{fmt(s.total_tokens)}</td>
                         </tr>
@@ -118,7 +124,7 @@ export function ProjectsList() {
                     : [
                         <tr key={`${p.project_slug}:empty`} className="tree-empty">
                           <td></td>
-                          <td colSpan={5}>no sessions</td>
+                          <td colSpan={6}>no sessions</td>
                         </tr>,
                       ]
                   : []),

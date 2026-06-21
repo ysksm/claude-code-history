@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { fmt, fmtDur } from "../format";
 import { useAsync } from "../useAsync";
@@ -8,8 +9,14 @@ type SortKey = keyof Pick<SessionRow, "total_tokens" | "tool_calls" | "prompts" 
 
 export function SessionList({ onSelect }: { onSelect: (id: string) => void }) {
   const { data, error, loading } = useAsync(() => api.sessions(), []);
+  const navigate = useNavigate();
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [q, setQ] = useState("");
   const [project, setProject] = useState("");
+
+  const selectedIds = useMemo(() => Object.keys(selected).filter((id) => selected[id]), [selected]);
+  const toggle = (id: string) => setSelected((p) => ({ ...p, [id]: !p[id] }));
+  const compare = () => navigate(`/sessions/compare?ids=${selectedIds.join(",")}`);
   const [sort, setSort] = useState<SortKey>("total_tokens");
 
   const projects = useMemo(
@@ -41,6 +48,10 @@ export function SessionList({ onSelect }: { onSelect: (id: string) => void }) {
           {projects.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
         <span className="muted">{rows.length} sessions</span>
+        <button className="btn-primary" disabled={selectedIds.length < 2} onClick={compare}>
+          Compare selected
+        </button>
+        <span className="muted">{selectedIds.length} selected</span>
       </div>
 
       {loading && <p className="muted">loading…</p>}
@@ -50,7 +61,7 @@ export function SessionList({ onSelect }: { onSelect: (id: string) => void }) {
         <table>
           <thead>
             <tr>
-              <th>title</th><th>project</th>
+              <th></th><th>title</th><th>project</th>
               <Th k="day" label="day" />
               <Th k="duration_sec" label="duration" />
               <Th k="prompts" label="prompts" />
@@ -61,7 +72,16 @@ export function SessionList({ onSelect }: { onSelect: (id: string) => void }) {
           <tbody>
             {rows.map((s) => (
               <tr key={s.session_id} className="clickable" onClick={() => onSelect(s.session_id)}>
-                <td className="title">{s.ai_title || <span className="muted">{s.session_id.slice(0, 8)}</span>}</td>
+                <td onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" checked={!!selected[s.session_id]}
+                    onChange={() => toggle(s.session_id)} />
+                </td>
+                <td className="title">
+                  {s.ai_title || <span className="muted">{s.session_id.slice(0, 8)}</span>}
+                  {s.max_parallel >= 2 && (
+                    <span className="par-badge" title={`up to ${s.max_parallel} subagents ran in parallel`}>∥{s.max_parallel}</span>
+                  )}
+                </td>
                 <td>{s.project}</td>
                 <td>{s.day}</td>
                 <td>{fmtDur(s.duration_sec)}</td>

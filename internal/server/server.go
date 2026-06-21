@@ -9,6 +9,8 @@ import (
 	"io/fs"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -45,6 +47,7 @@ func Serve(ctx context.Context, paths source.Paths, port int) error {
 	mux.HandleFunc("/api/session", h.handle(h.session))
 	mux.HandleFunc("/api/session_meta", h.handle(h.sessionMeta))
 	mux.HandleFunc("/api/session_minutes", h.handle(h.sessionMinutes))
+	mux.HandleFunc("/api/mcp_server", h.mcpServer)
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	fmt.Printf("Dashboard: http://%s\n", addr)
@@ -76,6 +79,72 @@ func spaHandler(root fs.FS) http.Handler {
 type api struct{ paths source.Paths }
 
 type queryFunc func(*http.Request) (string, error)
+
+// mcpBinary returns the absolute path of the running cch executable, used to
+// build the `claude mcp add` command.
+func mcpBinary() string {
+	if p, err := os.Executable(); err == nil {
+		return p
+	}
+	return "cch"
+}
+
+// mcpServerStatus reports how to register the MCP server and whether it is
+// currently registered in Claude Code (user scope).
+func mcpServerStatus() map[string]any {
+	bin := mcpBinary()
+	available := false
+	if _, err := exec.LookPath("claude"); err == nil {
+		available = true
+	}
+	installed := false
+	if available {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		installed = exec.CommandContext(ctx, "claude", "mcp", "get", "cch").Run() == nil
+	}
+	return map[string]any{
+		"binary":           bin,
+		"command":          "claude mcp add --scope user cch -- " + bin + " mcp",
+		"remove_command":   "claude mcp remove --scope user cch",
+		"claude_available": available,
+		"installed":        installed,
+	}
+}
+
+// mcpServer: GET reports registration status; POST {enabled} registers or
+// removes the cch MCP server in Claude Code (user scope) via the claude CLI.
+func (a *api) mcpServer(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		var body struct {
+			Enabled bool `json:"enabled"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		var args []string
+		if body.Enabled {
+			args = []string{"mcp", "add", "--scope", "user", "cch", "--", mcpBinary(), "mcp"}
+		} else {
+			args = []string{"mcp", "remove", "--scope", "user", "cch"}
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+		defer cancel()
+		out, err := exec.CommandContext(ctx, "claude", args...).CombinedOutput()
+		status := mcpServerStatus()
+		status["action_ok"] = err == nil
+		status["action_output"] = strings.TrimSpace(string(out))
+		if err != nil {
+			status["action_error"] = err.Error()
+		}
+		writeObj(w, status)
+		return
+	}
+	writeObj(w, mcpServerStatus())
+}
+
+func writeObj(w http.ResponseWriter, obj any) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(obj)
+}
 
 // handle wraps a query-building func: build SQL, run it, emit JSON rows.
 func (a *api) handle(qf queryFunc) http.HandlerFunc {
@@ -146,6 +215,8 @@ func (a *api) overview(r *http.Request) (string, error) {
 	  (SELECT count(*) FROM tool_calls WHERE %[2]s)                                       AS tool_calls,
 	  (SELECT count(*) FROM tool_calls WHERE plugin IS NOT NULL AND plugin<>'' AND %[2]s) AS plugin_tool_calls,
 	  (SELECT count(*) FROM tool_calls WHERE category='agent' AND %[2]s)                  AS subagent_calls,
+	  (SELECT coalesce(sum(in_lines),0) FROM tool_calls WHERE category='file' AND %[2]s)  AS code_added,
+	  (SELECT coalesce(sum(del_lines),0) FROM tool_calls WHERE category='file' AND %[2]s) AS code_removed,
 	  (SELECT coalesce(sum(input_tokens),0) FROM messages WHERE %[1]s)                    AS input_tokens,
 	  (SELECT coalesce(sum(output_tokens),0) FROM messages WHERE %[1]s)                   AS output_tokens,
 	  (SELECT coalesce(sum(cache_read),0) FROM messages WHERE %[1]s)                      AS cache_read_tokens,
@@ -167,16 +238,27 @@ func (a *api) daily(r *http.Request) (string, error) {
 }
 
 func (a *api) projects(r *http.Request) (string, error) {
-	c := cond(r.URL.Query(), "m.ts_ms")
-	return fmt.Sprintf(`SELECT s.project, m.project_slug,
+	q := r.URL.Query()
+	c := cond(q, "m.ts_ms")
+	ct := cond(q, "ts_ms") // for tool_calls (has ts_ms, project_slug, is_sidechain)
+	return fmt.Sprintf(`WITH code AS (
+	    SELECT project_slug,
+	      coalesce(sum(in_lines),0) AS code_added,
+	      coalesce(sum(del_lines),0) AS code_removed
+	    FROM tool_calls WHERE category='file' AND %s GROUP BY 1
+	  )
+	SELECT s.project, m.project_slug,
 	  count(DISTINCT m.session_id) AS sessions,
 	  coalesce(sum(m.n_tool_use),0)    AS tool_calls,
+	  coalesce(max(code.code_added),0)   AS code_added,
+	  coalesce(max(code.code_removed),0) AS code_removed,
 	  coalesce(sum(m.input_tokens),0)  AS input_tokens,
 	  coalesce(sum(m.output_tokens),0) AS output_tokens,
 	  coalesce(sum(m.cache_read),0)    AS cache_read,
 	  coalesce(sum(m.total_tokens),0)  AS total_tokens
 	FROM messages m JOIN sessions s ON s.session_id=m.session_id
-	WHERE %s GROUP BY 1,2 ORDER BY total_tokens DESC`, replaceSlug(c, "m.")), nil
+	LEFT JOIN code ON code.project_slug=m.project_slug
+	WHERE %s GROUP BY 1,2 ORDER BY total_tokens DESC`, ct, replaceSlug(c, "m.")), nil
 }
 
 func (a *api) models(r *http.Request) (string, error) {
@@ -279,13 +361,29 @@ func (a *api) timing(r *http.Request) (string, error) {
 
 func (a *api) sessions(r *http.Request) (string, error) {
 	c := cond(r.URL.Query(), "m.ts_ms")
-	return fmt.Sprintf(`SELECT m.session_id, s.project, s.ai_title,
+	// par: max number of subagent dispatches (agent tool calls) running
+	// concurrently within a session — a sweep line over [call_ms, result_ms].
+	return fmt.Sprintf(`WITH iv AS (
+	    SELECT session_id, call_ms AS s, result_ms AS e
+	    FROM v_tool_timing
+	    WHERE category='agent' AND call_ms IS NOT NULL AND result_ms IS NOT NULL AND result_ms > call_ms
+	  ), ev AS (
+	    SELECT session_id, s AS t, 1 AS d FROM iv
+	    UNION ALL SELECT session_id, e AS t, -1 AS d FROM iv
+	  ), run AS (
+	    SELECT session_id, sum(d) OVER (PARTITION BY session_id ORDER BY t, d) AS cur FROM ev
+	  ), par AS (
+	    SELECT session_id, max(cur) AS max_parallel FROM run GROUP BY 1
+	  )
+	SELECT m.session_id, s.project, s.ai_title,
 	  round((max(m.ts_ms)-min(m.ts_ms))/1000.0) AS duration_sec,
 	  count(*) FILTER (WHERE m.type='user') AS prompts,
 	  coalesce(sum(m.n_tool_use),0) AS tool_calls,
 	  coalesce(sum(m.total_tokens),0) AS total_tokens,
+	  coalesce(max(par.max_parallel),1) AS max_parallel,
 	  CAST(to_timestamp(min(m.ts_ms)/1000.0) AS DATE) AS day
 	FROM messages m JOIN sessions s ON s.session_id=m.session_id
+	LEFT JOIN par ON par.session_id=m.session_id
 	WHERE %s GROUP BY 1,2,3 ORDER BY total_tokens DESC LIMIT 100`, replaceSlug(c, "m.")), nil
 }
 
@@ -303,7 +401,7 @@ func (a *api) session(r *http.Request) (string, error) {
 	if id == "" {
 		return "", fmt.Errorf("missing id")
 	}
-	return fmt.Sprintf(`SELECT seq, ts_ms, offset_sec, kind, label, category,
+	return fmt.Sprintf(`SELECT seq, ts_ms, offset_sec, kind, label, category, detail, in_lines, del_lines,
 	  total_tokens, input_tokens, output_tokens, duration_ms, is_error, size, cum_tokens
 	FROM v_events WHERE session_id=%s%s ORDER BY ts_ms, seq LIMIT 2000`,
 		lit(id), scCond(q)), nil

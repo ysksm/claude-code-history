@@ -6,6 +6,7 @@ import { useAsync } from "../useAsync";
 import { aggregateOverviews } from "../lib/aggregate";
 import { Cards } from "../components/Cards";
 import { Breadcrumb } from "../components/Breadcrumb";
+import { DiffStat } from "../components/DiffStat";
 import type { Overview } from "../types";
 
 export function ProjectsCompare() {
@@ -66,6 +67,12 @@ export function ProjectsCompare() {
                   {rows.map((o, i) => <td key={slugs[i]}>{fmt(get(o))}</td>)}
                 </tr>
               ))}
+              <tr>
+                <td>Code changes</td>
+                {rows.map((o, i) => (
+                  <td key={slugs[i]}><DiffStat added={o.code_added} removed={o.code_removed} /></td>
+                ))}
+              </tr>
             </tbody>
           </table>
         </div>
@@ -78,6 +85,7 @@ export function ProjectsCompare() {
             { label: "Sessions", value: fmt(c.sessions), sub: `${c.projects} projects combined` },
             { label: "Prompts", value: fmt(c.prompts), sub: `${fmt(c.slash_commands)} slash commands` },
             { label: "Tool calls", value: fmt(c.tool_calls), sub: `${fmt(c.plugin_tool_calls)} via plugins · ${fmt(c.subagent_calls)} subagent` },
+            { label: "Code changes", value: <DiffStat added={c.code_added} removed={c.code_removed} />, sub: "lines (Write+Edit)" },
             { label: "Output tokens", value: fmt(c.output_tokens), sub: "generated" },
             { label: "Input+cache", value: fmt(c.input_tokens + c.cache_read_tokens), sub: "processed (incl. cache)" },
             { label: "Total tokens", value: fmt(c.total_tokens), sub: "incl. cache re-reads" },
