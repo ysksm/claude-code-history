@@ -209,7 +209,10 @@ func buildTools(paths source.Paths) []tool {
 			desc: "Headline totals across all Claude Code history (sessions, prompts, tool calls, tokens).",
 			schema: `{"type":"object","properties":{},"additionalProperties":false}`,
 			run: func(ctx context.Context, _ map[string]any) (any, error) {
-				rows, err := q(ctx, "SELECT * FROM v_overview")
+				rows, err := q(ctx, `SELECT v.*,
+				  (SELECT coalesce(sum(in_lines),0) FROM tool_calls WHERE category='file')  AS code_added,
+				  (SELECT coalesce(sum(del_lines),0) FROM tool_calls WHERE category='file') AS code_removed
+				FROM v_overview v`)
 				if err != nil || len(rows) == 0 {
 					return rows, err
 				}
@@ -265,6 +268,8 @@ func buildTools(paths source.Paths) []tool {
 					out["summary"] = r[0]
 				}
 				out["tool_breakdown"], _ = q(ctx, "SELECT category, count(*) AS calls, count(*) FILTER (WHERE is_error) AS errors FROM v_tool_timing WHERE session_id="+lid+" GROUP BY 1 ORDER BY calls DESC")
+				out["time_by_category"], _ = q(ctx, "SELECT category, coalesce(sum(duration_ms),0) AS total_ms, round(coalesce(quantile_cont(duration_ms,0.5),0)) AS p50_ms, count(*) AS calls FROM v_tool_timing WHERE session_id="+lid+" AND duration_ms>=0 GROUP BY 1 ORDER BY total_ms DESC")
+				out["slow_commands"], _ = q(ctx, "SELECT detail AS command, coalesce(sum(duration_ms),0) AS total_ms, count(*) AS runs, round(coalesce(quantile_cont(duration_ms,0.5),0)) AS p50_ms FROM v_tool_timing WHERE session_id="+lid+" AND category='bash' AND detail<>'' AND duration_ms>=0 GROUP BY 1 ORDER BY total_ms DESC LIMIT 20")
 				out["files_written"], _ = q(ctx, "SELECT detail AS file, sum(in_lines) AS added, sum(del_lines) AS removed, count(*) AS edits FROM v_tool_timing WHERE session_id="+lid+" AND category='file' AND (in_lines>0 OR del_lines>0) GROUP BY 1 ORDER BY added+removed DESC LIMIT 40")
 				out["commands"], _ = q(ctx, "SELECT detail AS command, count(*) AS runs FROM v_tool_timing WHERE session_id="+lid+" AND category='bash' AND detail<>'' GROUP BY 1 ORDER BY runs DESC LIMIT 40")
 				out["errors"], _ = q(ctx, "SELECT name, detail, count(*) AS n FROM v_tool_timing WHERE session_id="+lid+" AND is_error GROUP BY 1,2 ORDER BY n DESC LIMIT 40")
@@ -291,9 +296,66 @@ func buildTools(paths source.Paths) []tool {
 				}
 				out["sessions"], _ = q(ctx, "SELECT session_id, project, ai_title, round(duration_sec) AS duration_sec, n_user AS prompts, n_tool_use AS tool_calls, total_tokens FROM v_session_rollup WHERE day="+ld+" ORDER BY total_tokens DESC")
 				out["tool_breakdown"], _ = q(ctx, "SELECT category, count(*) AS calls, count(*) FILTER (WHERE is_error) AS errors FROM v_tool_timing WHERE "+dayExpr+" GROUP BY 1 ORDER BY calls DESC")
+				out["time_by_category"], _ = q(ctx, "SELECT category, coalesce(sum(duration_ms),0) AS total_ms, round(coalesce(quantile_cont(duration_ms,0.5),0)) AS p50_ms, count(*) AS calls FROM v_tool_timing WHERE "+dayExpr+" AND duration_ms>=0 GROUP BY 1 ORDER BY total_ms DESC")
+				out["slow_commands"], _ = q(ctx, "SELECT detail AS command, coalesce(sum(duration_ms),0) AS total_ms, count(*) AS runs, round(coalesce(quantile_cont(duration_ms,0.5),0)) AS p50_ms FROM v_tool_timing WHERE "+dayExpr+" AND category='bash' AND detail<>'' AND duration_ms>=0 GROUP BY 1 ORDER BY total_ms DESC LIMIT 20")
 				out["errors"], _ = q(ctx, "SELECT name, detail, count(*) AS n FROM v_tool_timing WHERE "+dayExpr+" AND is_error GROUP BY 1,2 ORDER BY n DESC LIMIT 40")
 				out["files_changed"], _ = q(ctx, "SELECT detail AS file, sum(in_lines) AS added, sum(del_lines) AS removed, count(*) AS edits FROM v_tool_timing WHERE "+dayExpr+" AND category='file' AND (in_lines>0 OR del_lines>0) GROUP BY 1 ORDER BY added+removed DESC LIMIT 40")
 				return out, nil
+			},
+		},
+		{
+			name: "time_breakdown",
+			desc: "Where execution time goes, grouped by dim: category | tool | command (bash). Returns total_ms, p50_ms, calls, errors. Optionally scope to a session_id or a day (YYYY-MM-DD). total_ms is wall-clock and includes wait/idle — use p50_ms for real per-call cost. Shows e.g. the time share of `npm run lint`.",
+			schema: `{"type":"object","properties":{
+			  "dim":{"type":"string","enum":["category","tool","command"],"description":"grouping dimension (default category)"},
+			  "session_id":{"type":"string","description":"optional: restrict to one session (prefix ok)"},
+			  "day":{"type":"string","description":"optional: YYYY-MM-DD"}},
+			  "additionalProperties":false}`,
+			run: func(ctx context.Context, args map[string]any) (any, error) {
+				keyExpr, extra := "category", ""
+				switch argStr(args, "dim") {
+				case "tool":
+					keyExpr = "name"
+				case "command":
+					keyExpr = "detail"
+					extra = " AND category='bash' AND detail<>''"
+				}
+				where := "duration_ms>=0" + extra
+				if sid := argStr(args, "session_id"); sid != "" {
+					id, err := resolveID(ctx, sid)
+					if err != nil {
+						return nil, err
+					}
+					where += " AND session_id=" + litStr(id)
+				}
+				if day := argStr(args, "day"); day != "" {
+					where += " AND CAST(to_timestamp(call_ms/1000.0) AS DATE)=" + litStr(day)
+				}
+				return q(ctx, fmt.Sprintf(`SELECT %s AS key, count(*) AS calls,
+				  coalesce(sum(duration_ms),0) AS total_ms,
+				  round(coalesce(quantile_cont(duration_ms,0.5),0)) AS p50_ms,
+				  count(*) FILTER (WHERE is_error) AS errors
+				FROM v_tool_timing WHERE %s GROUP BY 1 ORDER BY total_ms DESC LIMIT 50`, keyExpr, where))
+			},
+		},
+		{
+			name: "usage_windows",
+			desc: "Estimated token consumption in the rolling 5-hour and 7-day windows (Claude Code's usage-limit windows), from local transcripts. Includes subagents. Note: official Anthropic limit thresholds and exact reset times are NOT here — get them from Claude Code `/usage`.",
+			schema: `{"type":"object","properties":{},"additionalProperties":false}`,
+			run: func(ctx context.Context, _ map[string]any) (any, error) {
+				now := time.Now().UnixMilli()
+				h5 := now - 5*3600*1000
+				wk := now - 7*24*3600*1000
+				rows, err := q(ctx, fmt.Sprintf(`SELECT %[1]d AS now_ms, %[2]d AS h5_from, %[3]d AS wk_from,
+				  (SELECT coalesce(sum(total_tokens),0)  FROM messages WHERE ts_ms>=%[2]d) AS h5_total,
+				  (SELECT coalesce(sum(output_tokens),0) FROM messages WHERE ts_ms>=%[2]d) AS h5_output,
+				  (SELECT coalesce(sum(total_tokens),0)  FROM messages WHERE ts_ms>=%[3]d) AS wk_total,
+				  (SELECT coalesce(sum(output_tokens),0) FROM messages WHERE ts_ms>=%[3]d) AS wk_output,
+				  (SELECT coalesce(max(ts_ms),0) FROM messages) AS last_ms`, now, h5, wk))
+				if err != nil || len(rows) == 0 {
+					return rows, err
+				}
+				return rows[0], nil
 			},
 		},
 		{
