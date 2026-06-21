@@ -67,6 +67,11 @@ td a:hover, .panel a:hover { text-decoration: underline; }
   color: var(--muted); font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 620px; margin-top: 2px;
 }
+.bar-cell { width: 28%; }
+.time-bar { display: inline-block; height: 12px; border-radius: 3px; background: var(--accent); min-width: 2px; vertical-align: middle; }
+.day-row { display: flex; align-items: center; gap: 10px; padding: 3px 0; font-size: 12px; }
+.day-row .day-label { width: 92px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.day-row .day-bar { height: 12px; border-radius: 3px; background: var(--accent3); min-width: 2px; }
 .value-model { display: inline-flex; align-items: center; gap: 6px; }
 .value-model input { width: 70px; }
 .value-model input.cur { width: 32px; text-align: center; }

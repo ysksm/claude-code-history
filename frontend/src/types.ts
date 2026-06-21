@@ -93,6 +93,20 @@ export interface MinuteRow {
   cum_tokens: number;
 }
 
+export interface TimeRow {
+  key: string;
+  calls: number;
+  total_ms: number;
+  p50_ms: number;
+  errors: number;
+}
+
+export interface DailyTime {
+  day: string;
+  calls: number;
+  tool_ms: number;
+}
+
 export interface McpServerStatus {
   binary: string;
   command: string;

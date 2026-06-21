@@ -47,6 +47,8 @@ func Serve(ctx context.Context, paths source.Paths, port int) error {
 	mux.HandleFunc("/api/session", h.handle(h.session))
 	mux.HandleFunc("/api/session_meta", h.handle(h.sessionMeta))
 	mux.HandleFunc("/api/session_minutes", h.handle(h.sessionMinutes))
+	mux.HandleFunc("/api/time_breakdown", h.handle(h.timeBreakdown))
+	mux.HandleFunc("/api/time_daily", h.handle(h.timeDaily))
 	mux.HandleFunc("/api/mcp_server", h.mcpServer)
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
@@ -79,6 +81,36 @@ func spaHandler(root fs.FS) http.Handler {
 type api struct{ paths source.Paths }
 
 type queryFunc func(*http.Request) (string, error)
+
+// timeBreakdown aggregates tool execution time grouped by a dimension:
+// category (default), tool name, or bash command (detail). Answers "where does
+// time go" — e.g. how much of the time `npm run lint` consumes.
+func (a *api) timeBreakdown(r *http.Request) (string, error) {
+	q := r.URL.Query()
+	c := cond(q, "call_ms") // v_tool_timing has call_ms, project_slug, is_sidechain
+	keyExpr, extra := "category", ""
+	switch q.Get("dim") {
+	case "tool":
+		keyExpr = "name"
+	case "command":
+		keyExpr = "detail"
+		extra = " AND category='bash' AND detail<>''"
+	}
+	return fmt.Sprintf(`SELECT %s AS key, count(*) AS calls,
+	  coalesce(sum(duration_ms),0) AS total_ms,
+	  round(coalesce(quantile_cont(duration_ms,0.5),0)) AS p50_ms,
+	  count(*) FILTER (WHERE is_error) AS errors
+	FROM v_tool_timing WHERE duration_ms>=0 AND %s%s
+	GROUP BY 1 ORDER BY total_ms DESC LIMIT 50`, keyExpr, c, extra), nil
+}
+
+// timeDaily sums tool execution time per day (chronological view).
+func (a *api) timeDaily(r *http.Request) (string, error) {
+	c := cond(r.URL.Query(), "call_ms")
+	return fmt.Sprintf(`SELECT CAST(to_timestamp(call_ms/1000.0) AS DATE) AS day,
+	  count(*) AS calls, coalesce(sum(duration_ms),0) AS tool_ms
+	FROM v_tool_timing WHERE duration_ms>=0 AND %s GROUP BY 1 ORDER BY 1`, c), nil
+}
 
 // mcpBinary returns the absolute path of the running cch executable, used to
 // build the `claude mcp add` command.
