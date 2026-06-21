@@ -3,12 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { fmt, fmtDur } from "../format";
 import { useAsync } from "../useAsync";
+import { usePeriodFilter } from "../period";
 import { DiffStat } from "../components/DiffStat";
 import type { SessionRow } from "../types";
 
 export function ProjectsList() {
-  const { data, error, loading } = useAsync(() => api.projects(), []);
-  const sessions = useAsync(() => api.sessions(), []);
+  const { from, to, control } = usePeriodFilter();
+  const { data, error, loading } = useAsync(() => api.projects({ from, to }), [from, to]);
+  const sessions = useAsync(() => api.sessions({ from, to }), [from, to]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
@@ -45,6 +47,7 @@ export function ProjectsList() {
 
   return (
     <div className="page">
+      <div className="toolbar">{control}</div>
       <div className="toolbar">
         <button
           className="btn-primary"

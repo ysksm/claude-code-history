@@ -5,6 +5,7 @@ import { useAsync } from "../useAsync";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { Cards } from "../components/Cards";
 import { DiffStat } from "../components/DiffStat";
+import { loadModel, estimate, fmtMoney } from "../valueModel";
 
 export function ProjectOverview() {
   const { slug } = useParams();
@@ -34,6 +35,7 @@ export function ProjectOverview() {
           { label: "Prompts", value: fmt(o.prompts), sub: `${fmt(o.slash_commands)} slash commands` },
           { label: "Tool calls", value: fmt(o.tool_calls), sub: `${fmt(o.plugin_tool_calls)} via plugins · ${fmt(o.subagent_calls)} subagent` },
           { label: "Code changes", value: <DiffStat added={o.code_added} removed={o.code_removed} />, sub: "lines (Write+Edit)" },
+          { label: "Est. value", value: fmtMoney(estimate(o.code_added, loadModel()).money, loadModel().currency), sub: `~${estimate(o.code_added, loadModel()).hours.toFixed(1)}h saved` },
           { label: "Output tokens", value: fmt(o.output_tokens), sub: "generated" },
           { label: "Input+cache", value: fmt(o.input_tokens + o.cache_read_tokens), sub: "processed (incl. cache)" },
           { label: "Total tokens", value: fmt(o.total_tokens), sub: "incl. cache re-reads" },

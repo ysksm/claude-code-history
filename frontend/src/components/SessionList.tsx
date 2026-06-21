@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { fmt, fmtDur } from "../format";
 import { useAsync } from "../useAsync";
+import { usePeriodFilter } from "../period";
 import type { SessionRow } from "../types";
 
 type SortKey = keyof Pick<SessionRow, "total_tokens" | "tool_calls" | "prompts" | "duration_sec" | "day">;
 
 export function SessionList({ onSelect }: { onSelect: (id: string) => void }) {
-  const { data, error, loading } = useAsync(() => api.sessions(), []);
+  const { from, to, control } = usePeriodFilter();
+  const { data, error, loading } = useAsync(() => api.sessions({ from, to }), [from, to]);
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [q, setQ] = useState("");
@@ -41,6 +43,7 @@ export function SessionList({ onSelect }: { onSelect: (id: string) => void }) {
 
   return (
     <div className="page">
+      <div className="toolbar">{control}</div>
       <div className="toolbar">
         <input placeholder="Search title / project / id…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={project} onChange={(e) => setProject(e.target.value)}>
