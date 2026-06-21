@@ -1,0 +1,8 @@
+/cch
+/cch.exe
+/cch-export/
+*.duckdb
+*.ndjson
+frontend/node_modules/
+frontend/.vite/
+frontend/tsconfig.tsbuildinfo
