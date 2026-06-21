@@ -88,6 +88,9 @@ type queryFunc func(*http.Request) (string, error)
 func (a *api) timeBreakdown(r *http.Request) (string, error) {
 	q := r.URL.Query()
 	c := cond(q, "call_ms") // v_tool_timing has call_ms, project_slug, is_sidechain
+	if s := q.Get("session"); s != "" {
+		c += " AND session_id=" + lit(s)
+	}
 	keyExpr, extra := "category", ""
 	switch q.Get("dim") {
 	case "tool":

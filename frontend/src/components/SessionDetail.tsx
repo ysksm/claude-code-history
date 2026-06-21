@@ -7,6 +7,7 @@ import { Cards } from "./Cards";
 import { CumulativeChart } from "./CumulativeChart";
 import { Legend } from "./Legend";
 import { DiffStat } from "./DiffStat";
+import { SessionTiming } from "./SessionTiming";
 import { loadModel, estimate, fmtMoney } from "../valueModel";
 import { Waterfall, type WfMode, type WfScale } from "./Waterfall";
 
@@ -75,6 +76,7 @@ export function SessionDetail({ id, onBack }: { id: string; onBack: () => void }
   const [etErr, setEtErr] = useState(false);
   const [etSearch, setEtSearch] = useState("");
   const [lgOpen, setLgOpen] = useState(false);
+  const [tmOpen, setTmOpen] = useState(false);
   const { ref, w } = useWidth();
 
   const meta = useAsync(() => api.sessionMeta(id), [id]);
@@ -151,6 +153,14 @@ export function SessionDetail({ id, onBack }: { id: string; onBack: () => void }
           <h2>Legend <small>kind / category の分類と説明</small></h2>
         </div>
         {lgOpen && <Legend />}
+      </div>
+
+      <div className="panel">
+        <div className="acc-head" role="button" onClick={() => setTmOpen((o) => !o)}>
+          <span className="acc-caret">{tmOpen ? "▾" : "▸"}</span>
+          <h2>Timing <small>このセッションで何に時間が掛かったか</small></h2>
+        </div>
+        {tmOpen && <SessionTiming sessionId={id} />}
       </div>
 
       <div className="panel">

@@ -3,6 +3,7 @@ import { api } from "../api";
 import { fmt, fmtMs } from "../format";
 import { useAsync } from "../useAsync";
 import { usePeriodFilter } from "../period";
+import { TimeTable } from "../components/TimeTable";
 
 type Dim = "category" | "tool" | "command";
 
@@ -41,29 +42,7 @@ export function Timing() {
         {rows.loading && <p className="muted">loading…</p>}
         {rows.error && <p className="error">{rows.error}</p>}
 
-        <table>
-          <thead>
-            <tr><th>{dim}</th><th>share</th><th>total time</th><th>%</th><th>calls</th><th>p50</th><th>err</th></tr>
-          </thead>
-          <tbody>
-            {rows.data?.map((r) => {
-              const pct = (r.total_ms / grandTotal) * 100;
-              return (
-                <tr key={r.key}>
-                  <td className="title">{r.key || <span className="muted">(empty)</span>}</td>
-                  <td className="bar-cell">
-                    <span className="time-bar" style={{ width: `${Math.max(2, pct)}%` }} />
-                  </td>
-                  <td>{fmtMs(r.total_ms)}</td>
-                  <td>{pct.toFixed(1)}%</td>
-                  <td>{fmt(r.calls)}</td>
-                  <td>{fmtMs(r.p50_ms)}</td>
-                  <td>{r.errors ? <span className="del">{r.errors}</span> : ""}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <TimeTable rows={rows.data ?? []} grandTotal={grandTotal} dimLabel={dim} />
       </div>
 
       <div className="panel">
