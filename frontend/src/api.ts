@@ -1,6 +1,6 @@
 import type {
   Overview, ProjectRow, SessionRow, SessionMeta, EventRow, MinuteRow, FilterRow,
-  McpServerStatus, TimeRow, DailyTime,
+  McpServerStatus, TimeRow, DailyTime, UsageWindows,
 } from "./types";
 
 type Params = Record<string, string | number | boolean | undefined>;
@@ -30,6 +30,7 @@ export const api = {
   minutes: (id: string) => get<MinuteRow>("session_minutes", { id }),
   timeBreakdown: (dim: string, p?: Params) => get<TimeRow>("time_breakdown", { sidechain: "include", dim, ...p }),
   timeDaily: (p?: Params) => get<DailyTime>("time_daily", { sidechain: "include", ...p }),
+  usageWindows: () => one<UsageWindows>("usage_windows"),
   mcpServer: async (): Promise<McpServerStatus> => {
     const r = await fetch("/api/mcp_server");
     if (!r.ok) throw new Error(`mcp_server: ${r.status} ${await r.text()}`);

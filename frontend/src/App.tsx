@@ -7,6 +7,7 @@ import { ProjectsCompare } from "./routes/ProjectsCompare";
 import { ProjectOverview } from "./routes/ProjectOverview";
 import { SessionsCompare } from "./routes/SessionsCompare";
 import { Timing } from "./routes/Timing";
+import { Usage } from "./routes/Usage";
 import { McpView } from "./routes/McpView";
 
 function OverviewRoute() {
@@ -52,6 +53,9 @@ export function App() {
           <NavLink to="/timing" className={({ isActive }) => (isActive ? "active" : "")}>
             Timing
           </NavLink>
+          <NavLink to="/usage" className={({ isActive }) => (isActive ? "active" : "")}>
+            Usage
+          </NavLink>
           <NavLink to="/mcp" className={({ isActive }) => (isActive ? "active" : "")}>
             MCP
           </NavLink>
@@ -68,6 +72,7 @@ export function App() {
           <Route path="/sessions/compare" element={<SessionsCompare />} />
           <Route path="/sessions/:id" element={<SessionDetailRoute />} />
           <Route path="/timing" element={<Timing />} />
+          <Route path="/usage" element={<Usage />} />
           <Route path="/mcp" element={<McpView />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

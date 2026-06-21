@@ -93,6 +93,21 @@ export interface MinuteRow {
   cum_tokens: number;
 }
 
+export interface UsageWindows {
+  now_ms: number;
+  h5_from: number;
+  wk_from: number;
+  h5_total: number;
+  h5_output: number;
+  h5_input: number;
+  h5_sessions: number;
+  wk_total: number;
+  wk_output: number;
+  wk_input: number;
+  wk_sessions: number;
+  last_ms: number;
+}
+
 export interface TimeRow {
   key: string;
   calls: number;

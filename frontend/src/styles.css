@@ -67,6 +67,15 @@ td a:hover, .panel a:hover { text-decoration: underline; }
   color: var(--muted); font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 620px; margin-top: 2px;
 }
+.usage-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; }
+.usage-big { font-size: 32px; font-weight: 700; margin: 6px 0 2px; }
+.usage-big .muted { font-size: 14px; font-weight: 400; }
+.usage-sub { font-size: 12px; margin-bottom: 10px; }
+.usage-bar { height: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin: 8px 0 4px; }
+.usage-bar span { display: block; height: 100%; border-radius: 6px; }
+.usage-reset { margin-top: 10px; }
+.usage-limit { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.usage-limit input { width: 140px; }
 .bar-cell { width: 28%; }
 .time-bar { display: inline-block; height: 12px; border-radius: 3px; background: var(--accent); min-width: 2px; vertical-align: middle; }
 .day-row { display: flex; align-items: center; gap: 10px; padding: 3px 0; font-size: 12px; }

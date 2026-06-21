@@ -47,6 +47,7 @@ func Serve(ctx context.Context, paths source.Paths, port int) error {
 	mux.HandleFunc("/api/session", h.handle(h.session))
 	mux.HandleFunc("/api/session_meta", h.handle(h.sessionMeta))
 	mux.HandleFunc("/api/session_minutes", h.handle(h.sessionMinutes))
+	mux.HandleFunc("/api/usage_windows", h.handle(h.usageWindows))
 	mux.HandleFunc("/api/time_breakdown", h.handle(h.timeBreakdown))
 	mux.HandleFunc("/api/time_daily", h.handle(h.timeDaily))
 	mux.HandleFunc("/api/mcp_server", h.mcpServer)
@@ -81,6 +82,27 @@ func spaHandler(root fs.FS) http.Handler {
 type api struct{ paths source.Paths }
 
 type queryFunc func(*http.Request) (string, error)
+
+// usageWindows reports token consumption in the rolling 5-hour and 7-day
+// windows (the two Claude Code usage-limit windows), computed from the local
+// transcripts. Note: the actual Anthropic limit thresholds and official reset
+// timestamps are not stored locally (they come from API headers / `/usage`);
+// this is a consumption estimate. Includes subagents (limits count everything).
+func (a *api) usageWindows(r *http.Request) (string, error) {
+	now := time.Now().UnixMilli()
+	h5 := now - 5*3600*1000
+	wk := now - 7*24*3600*1000
+	return fmt.Sprintf(`SELECT %[1]d AS now_ms, %[2]d AS h5_from, %[3]d AS wk_from,
+	  (SELECT coalesce(sum(total_tokens),0)  FROM messages WHERE ts_ms>=%[2]d) AS h5_total,
+	  (SELECT coalesce(sum(output_tokens),0) FROM messages WHERE ts_ms>=%[2]d) AS h5_output,
+	  (SELECT coalesce(sum(input_tokens),0)+coalesce(sum(cache_read),0) FROM messages WHERE ts_ms>=%[2]d) AS h5_input,
+	  (SELECT count(DISTINCT session_id) FROM messages WHERE ts_ms>=%[2]d) AS h5_sessions,
+	  (SELECT coalesce(sum(total_tokens),0)  FROM messages WHERE ts_ms>=%[3]d) AS wk_total,
+	  (SELECT coalesce(sum(output_tokens),0) FROM messages WHERE ts_ms>=%[3]d) AS wk_output,
+	  (SELECT coalesce(sum(input_tokens),0)+coalesce(sum(cache_read),0) FROM messages WHERE ts_ms>=%[3]d) AS wk_input,
+	  (SELECT count(DISTINCT session_id) FROM messages WHERE ts_ms>=%[3]d) AS wk_sessions,
+	  (SELECT coalesce(max(ts_ms),0) FROM messages) AS last_ms`, now, h5, wk), nil
+}
 
 // timeBreakdown aggregates tool execution time grouped by a dimension:
 // category (default), tool name, or bash command (detail). Answers "where does
