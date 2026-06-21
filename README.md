@@ -33,6 +33,8 @@ go install ./cmd/cch
 ./run.sh                    # ビルド → ingest → serve
 ./run.sh report all         # 任意のサブコマンドを転送
 ./run.sh serve --port 9000
+./run.sh mcp                # MCP サーバ（stdio）
+./dev.sh                    # 開発モード: API + Vite dev（HMR, http://localhost:5173）
 ```
 
 ```bat
@@ -40,6 +42,8 @@ REM Windows
 run.bat
 run.bat report all
 run.bat serve --port 9000
+run.bat mcp
+dev.bat                     REM 開発モード: API + Vite dev（HMR）
 ```
 
 ## 使い方
