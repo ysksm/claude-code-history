@@ -16,6 +16,7 @@ export function fmtDur(sec: number | null | undefined): string {
 
 export function fmtMs(ms: number | null | undefined): string {
   if (ms === null || ms === undefined) return "";
+  if (ms >= 3600000) return (ms / 3600000).toFixed(1) + "h";
   if (ms >= 60000) return (ms / 60000).toFixed(1) + "m";
   if (ms >= 1000) return (ms / 1000).toFixed(1) + "s";
   return Math.round(ms) + "ms";

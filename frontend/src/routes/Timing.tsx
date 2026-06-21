@@ -29,15 +29,20 @@ export function Timing() {
       <div className="toolbar">{control}</div>
 
       <div className="panel">
-        <h2>Where time goes <small>tool execution time (wall-clock call→result)</small></h2>
+        <h2>何に時間が掛かっているか <small>ツール実行時間の内訳</small></h2>
         <div className="acc-filters">
           <span className="seg">
-            <Btn d="category" label="by category" />
-            <Btn d="tool" label="by tool" />
-            <Btn d="command" label="by command" />
+            <Btn d="category" label="カテゴリ別" />
+            <Btn d="tool" label="ツール別" />
+            <Btn d="command" label="コマンド別" />
           </span>
-          <span className="muted">total tool time: {fmtMs(grandTotal)}</span>
+          <span className="muted">合計ツール時間: {fmtMs(grandTotal)}</span>
         </div>
+        <p className="hint">
+          バーの長さ＝合計時間の割合。<b>合計時間</b>は呼び出し〜結果のウォールクロックで、承認待ち・アイドルを含むため大きく出ることがあります。
+          実処理の重さは<b>「1回あたり中央値(p50)」</b>を目安にしてください。
+          「コマンド別」では <code>npm run lint</code> 等が時間に占める割合が分かります。
+        </p>
 
         {rows.loading && <p className="muted">loading…</p>}
         {rows.error && <p className="error">{rows.error}</p>}

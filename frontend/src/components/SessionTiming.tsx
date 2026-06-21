@@ -21,12 +21,13 @@ export function SessionTiming({ sessionId }: { sessionId: string }) {
     <>
       <div className="acc-filters">
         <span className="seg">
-          <Btn d="category" label="by category" />
-          <Btn d="tool" label="by tool" />
-          <Btn d="command" label="by command" />
+          <Btn d="category" label="カテゴリ別" />
+          <Btn d="tool" label="ツール別" />
+          <Btn d="command" label="コマンド別" />
         </span>
-        <span className="muted">total tool time: {fmtMs(grandTotal)}</span>
+        <span className="muted">合計ツール時間: {fmtMs(grandTotal)}</span>
       </div>
+      <p className="hint">合計時間は承認待ち・アイドルを含みます。実処理の重さは「1回あたり中央値」を目安に。</p>
       {rows.error && <p className="error">{rows.error}</p>}
       <TimeTable rows={rows.data ?? []} grandTotal={grandTotal} dimLabel={dim} />
     </>

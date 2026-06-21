@@ -1,32 +1,33 @@
-import { fmt, fmtMs } from "../format";
+import { fmt, fmtMs, catColor } from "../format";
 import type { TimeRow } from "../types";
 
-// Renders a time-share breakdown table. grandTotal is the denominator for %.
+// Time-share breakdown as a readable list: a full-width bar per row with the
+// label (truncated, full text on hover), total time + %, and a meta line.
+// grandTotal is the denominator for %.
 export function TimeTable({ rows, grandTotal, dimLabel }: {
   rows: TimeRow[]; grandTotal: number; dimLabel: string;
 }) {
   const total = grandTotal || 1;
+  if (!rows.length) return <p className="muted">no data</p>;
   return (
-    <table>
-      <thead>
-        <tr><th>{dimLabel}</th><th>share</th><th>total time</th><th>%</th><th>calls</th><th>p50</th><th>err</th></tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => {
-          const pct = (r.total_ms / total) * 100;
-          return (
-            <tr key={r.key}>
-              <td className="title">{r.key || <span className="muted">(empty)</span>}</td>
-              <td className="bar-cell"><span className="time-bar" style={{ width: `${Math.max(2, pct)}%` }} /></td>
-              <td>{fmtMs(r.total_ms)}</td>
-              <td>{pct.toFixed(1)}%</td>
-              <td>{fmt(r.calls)}</td>
-              <td>{fmtMs(r.p50_ms)}</td>
-              <td>{r.errors ? <span className="del">{r.errors}</span> : ""}</td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div className="tb-list">
+      {rows.map((r) => {
+        const pct = (r.total_ms / total) * 100;
+        const color = dimLabel === "category" ? catColor(r.key) : "var(--accent)";
+        return (
+          <div className="tb-row" key={r.key}>
+            <div className="tb-head">
+              <span className="tb-label" title={r.key}>{r.key || <span className="muted">(empty)</span>}</span>
+              <span className="tb-time"><b>{fmtMs(r.total_ms)}</b> <span className="muted">{pct.toFixed(1)}%</span></span>
+            </div>
+            <div className="tb-track"><span className="tb-fill" style={{ width: `${Math.max(1, pct)}%`, background: color }} /></div>
+            <div className="tb-meta muted">
+              {fmt(r.calls)} 回 · 1回あたり中央値 {fmtMs(r.p50_ms)}
+              {r.errors ? <> · <span className="del">{r.errors} エラー</span></> : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }

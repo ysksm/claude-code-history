@@ -76,6 +76,14 @@ td a:hover, .panel a:hover { text-decoration: underline; }
 .usage-reset { margin-top: 10px; }
 .usage-limit { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
 .usage-limit input { width: 140px; }
+.tb-list { display: flex; flex-direction: column; gap: 12px; }
+.tb-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.tb-label { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 75%; }
+.tb-time { white-space: nowrap; font-variant-numeric: tabular-nums; font-size: 13px; }
+.tb-time .muted { margin-left: 6px; }
+.tb-track { height: 9px; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; overflow: hidden; margin: 5px 0 4px; }
+.tb-fill { display: block; height: 100%; border-radius: 5px; }
+.tb-meta { font-size: 11px; }
 .bar-cell { width: 28%; }
 .time-bar { display: inline-block; height: 12px; border-radius: 3px; background: var(--accent); min-width: 2px; vertical-align: middle; }
 .day-row { display: flex; align-items: center; gap: 10px; padding: 3px 0; font-size: 12px; }
