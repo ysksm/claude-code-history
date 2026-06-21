@@ -7,6 +7,7 @@ import { Cards } from "./Cards";
 import { CumulativeChart } from "./CumulativeChart";
 import { Legend } from "./Legend";
 import { DiffStat } from "./DiffStat";
+import { loadModel, estimate, fmtMoney } from "../valueModel";
 import { Waterfall, type WfMode, type WfScale } from "./Waterfall";
 
 function useWidth() {
@@ -118,16 +119,22 @@ export function SessionDetail({ id, onBack }: { id: string; onBack: () => void }
       {m && (
         <p className="hint">{fmtDateTime(m.first_ms)} → {fmtDateTime(m.last_ms)}</p>
       )}
-      {m && (
-        <Cards cards={[
-          { label: "Duration", value: fmtDur(m.duration_sec), sub: `${fmtClock(m.first_ms)}–${fmtClock(m.last_ms)}` },
-          { label: "Prompts", value: fmt(m.prompts), sub: `${fmt(m.turns)} assistant turns` },
-          { label: "Tool calls", value: fmt(m.tools), sub: `${fmt(m.n_subagent_msgs)} subagent msgs` },
-          { label: "Output tokens", value: fmt(m.output_tokens), sub: "generated" },
-          { label: "Input+cache", value: fmt(m.input_tokens + m.cache_read), sub: "processed (incl. cache)" },
-          { label: "Models", value: "", sub: m.models ?? "" },
-        ]} />
-      )}
+      {m && (() => {
+        const model = loadModel();
+        const est = estimate(m.code_added, model);
+        return (
+          <Cards cards={[
+            { label: "Duration", value: fmtDur(m.duration_sec), sub: `${fmtClock(m.first_ms)}–${fmtClock(m.last_ms)}` },
+            { label: "Prompts", value: fmt(m.prompts), sub: `${fmt(m.turns)} assistant turns` },
+            { label: "Tool calls", value: fmt(m.tools), sub: `${fmt(m.n_subagent_msgs)} subagent msgs` },
+            { label: "Code changes", value: <DiffStat added={m.code_added} removed={m.code_removed} />, sub: "lines (Write+Edit)" },
+            { label: "Est. value", value: fmtMoney(est.money, model.currency), sub: `~${est.hours.toFixed(1)}h saved · ${fmt(m.code_added)} added ÷ ${model.linesPerHour}/h` },
+            { label: "Output tokens", value: fmt(m.output_tokens), sub: "generated" },
+            { label: "Input+cache", value: fmt(m.input_tokens + m.cache_read), sub: "processed (incl. cache)" },
+            { label: "Models", value: "", sub: m.models ?? "" },
+          ]} />
+        );
+      })()}
 
       <div className="panel">
         <h2>Cumulative output tokens & tool time / minute <small>(from session start)</small></h2>

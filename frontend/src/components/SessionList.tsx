@@ -4,12 +4,15 @@ import { api } from "../api";
 import { fmt, fmtDur } from "../format";
 import { useAsync } from "../useAsync";
 import { usePeriodFilter } from "../period";
+import { DiffStat } from "./DiffStat";
+import { loadModel, estimate, fmtMoney } from "../valueModel";
 import type { SessionRow } from "../types";
 
 type SortKey = keyof Pick<SessionRow, "total_tokens" | "tool_calls" | "prompts" | "duration_sec" | "day">;
 
 export function SessionList({ onSelect }: { onSelect: (id: string) => void }) {
   const { from, to, control } = usePeriodFilter();
+  const model = loadModel();
   const { data, error, loading } = useAsync(() => api.sessions({ from, to }), [from, to]);
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -69,6 +72,8 @@ export function SessionList({ onSelect }: { onSelect: (id: string) => void }) {
               <Th k="duration_sec" label="duration" />
               <Th k="prompts" label="prompts" />
               <Th k="tool_calls" label="tools" />
+              <th>code</th>
+              <th>est. value</th>
               <Th k="total_tokens" label="total tokens" />
             </tr>
           </thead>
@@ -90,6 +95,8 @@ export function SessionList({ onSelect }: { onSelect: (id: string) => void }) {
                 <td>{fmtDur(s.duration_sec)}</td>
                 <td>{fmt(s.prompts)}</td>
                 <td>{fmt(s.tool_calls)}</td>
+                <td><DiffStat added={s.code_added} removed={s.code_removed} /></td>
+                <td className="muted">{s.code_added ? fmtMoney(estimate(s.code_added, model).money, model.currency) : ""}</td>
                 <td>{fmt(s.total_tokens)}</td>
               </tr>
             ))}

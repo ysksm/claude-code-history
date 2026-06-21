@@ -119,7 +119,7 @@ export function ProjectsList() {
                           </td>
                           <td></td>
                           <td className="meta">{fmt(s.tool_calls)}</td>
-                          <td></td>
+                          <td><DiffStat added={s.code_added} removed={s.code_removed} /></td>
                           <td></td>
                           <td className="meta">{fmt(s.total_tokens)}</td>
                         </tr>

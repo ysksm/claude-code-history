@@ -36,6 +36,8 @@ export interface SessionRow {
   tool_calls: number;
   total_tokens: number;
   max_parallel: number;
+  code_added: number;
+  code_removed: number;
   day: string;
 }
 
@@ -50,6 +52,8 @@ export interface SessionMeta {
   turns: number;
   tools: number;
   n_subagent_msgs: number;
+  code_added: number;
+  code_removed: number;
   input_tokens: number;
   output_tokens: number;
   cache_read: number;

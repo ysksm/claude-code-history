@@ -374,6 +374,9 @@ func (a *api) sessions(r *http.Request) (string, error) {
 	    SELECT session_id, sum(d) OVER (PARTITION BY session_id ORDER BY t, d) AS cur FROM ev
 	  ), par AS (
 	    SELECT session_id, max(cur) AS max_parallel FROM run GROUP BY 1
+	  ), code AS (
+	    SELECT session_id, coalesce(sum(in_lines),0) AS code_added, coalesce(sum(del_lines),0) AS code_removed
+	    FROM tool_calls WHERE category='file' GROUP BY 1
 	  )
 	SELECT m.session_id, s.project, s.ai_title,
 	  round((max(m.ts_ms)-min(m.ts_ms))/1000.0) AS duration_sec,
@@ -381,9 +384,12 @@ func (a *api) sessions(r *http.Request) (string, error) {
 	  coalesce(sum(m.n_tool_use),0) AS tool_calls,
 	  coalesce(sum(m.total_tokens),0) AS total_tokens,
 	  coalesce(max(par.max_parallel),1) AS max_parallel,
+	  coalesce(max(code.code_added),0) AS code_added,
+	  coalesce(max(code.code_removed),0) AS code_removed,
 	  CAST(to_timestamp(min(m.ts_ms)/1000.0) AS DATE) AS day
 	FROM messages m JOIN sessions s ON s.session_id=m.session_id
 	LEFT JOIN par ON par.session_id=m.session_id
+	LEFT JOIN code ON code.session_id=m.session_id
 	WHERE %s GROUP BY 1,2,3 ORDER BY total_tokens DESC LIMIT 100`, replaceSlug(c, "m.")), nil
 }
 
@@ -415,8 +421,10 @@ func (a *api) sessionMeta(r *http.Request) (string, error) {
 	return fmt.Sprintf(`SELECT session_id, project, ai_title, round(duration_sec) AS duration_sec,
 	  first_ms, last_ms,
 	  n_user AS prompts, n_assistant AS turns, n_tool_use AS tools, n_subagent_msgs,
+	  (SELECT coalesce(sum(in_lines),0) FROM tool_calls WHERE category='file' AND session_id=%[1]s)  AS code_added,
+	  (SELECT coalesce(sum(del_lines),0) FROM tool_calls WHERE category='file' AND session_id=%[1]s) AS code_removed,
 	  input_tokens, output_tokens, cache_read, total_tokens, models, day
-	FROM v_session_rollup WHERE session_id=%s`, lit(id)), nil
+	FROM v_session_rollup WHERE session_id=%[1]s`, lit(id)), nil
 }
 
 func (a *api) sessionMinutes(r *http.Request) (string, error) {
