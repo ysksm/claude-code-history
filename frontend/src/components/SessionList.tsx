@@ -72,9 +72,9 @@ export function SessionList({ onSelect }: { onSelect: (id: string) => void }) {
               <Th k="duration_sec" label="duration" />
               <Th k="prompts" label="prompts" />
               <Th k="tool_calls" label="tools" />
-              <th>code</th>
+              <th>code (lines)</th>
               <th>est. value</th>
-              <Th k="total_tokens" label="total tokens" />
+              <Th k="total_tokens" label="total (tok)" />
             </tr>
           </thead>
           <tbody>

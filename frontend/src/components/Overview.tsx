@@ -45,7 +45,7 @@ export function Overview({ onOpenSession }: { onOpenSession: (id: string) => voi
       <div className="panel">
         <h2>Projects</h2>
         <table>
-          <thead><tr><th>project</th><th>sessions</th><th>tool calls</th><th>code</th><th>output</th><th>total tokens</th></tr></thead>
+          <thead><tr><th>project</th><th>sessions</th><th>tool calls</th><th>code (lines)</th><th>output (tok)</th><th>total (tok)</th></tr></thead>
           <tbody>
             {pr.data?.map((p) => (
               <tr key={p.project_slug}>
@@ -61,7 +61,7 @@ export function Overview({ onOpenSession }: { onOpenSession: (id: string) => voi
       <div className="panel">
         <h2>Recent / largest sessions <small>click to open timeline</small></h2>
         <table>
-          <thead><tr><th>title</th><th>project</th><th>day</th><th>tools</th><th>total tokens</th></tr></thead>
+          <thead><tr><th>title</th><th>project</th><th>day</th><th>tools</th><th>total (tok)</th></tr></thead>
           <tbody>
             {ss.data?.slice(0, 15).map((s) => (
               <tr key={s.session_id} className="clickable" onClick={() => onOpenSession(s.session_id)}>

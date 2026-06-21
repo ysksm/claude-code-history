@@ -131,8 +131,8 @@ export function SessionDetail({ id, onBack }: { id: string; onBack: () => void }
             { label: "Tool calls", value: fmt(m.tools), sub: `${fmt(m.n_subagent_msgs)} subagent msgs` },
             { label: "Code changes", value: <DiffStat added={m.code_added} removed={m.code_removed} />, sub: "lines (Write+Edit)" },
             { label: "Est. value", value: fmtMoney(est.money, model.currency), sub: `~${est.hours.toFixed(1)}h saved · ${fmt(m.code_added)} added ÷ ${model.linesPerHour}/h` },
-            { label: "Output tokens", value: fmt(m.output_tokens), sub: "generated" },
-            { label: "Input+cache", value: fmt(m.input_tokens + m.cache_read), sub: "processed (incl. cache)" },
+            { label: "Output tokens", value: fmt(m.output_tokens), sub: "tokens generated" },
+            { label: "Input+cache", value: fmt(m.input_tokens + m.cache_read), sub: "tokens (incl. cache)" },
             { label: "Models", value: "", sub: m.models ?? "" },
           ]} />
         );

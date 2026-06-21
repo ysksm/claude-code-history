@@ -36,8 +36,8 @@ export function ProjectOverview() {
           { label: "Tool calls", value: fmt(o.tool_calls), sub: `${fmt(o.plugin_tool_calls)} via plugins · ${fmt(o.subagent_calls)} subagent` },
           { label: "Code changes", value: <DiffStat added={o.code_added} removed={o.code_removed} />, sub: "lines (Write+Edit)" },
           { label: "Est. value", value: fmtMoney(estimate(o.code_added, loadModel()).money, loadModel().currency), sub: `~${estimate(o.code_added, loadModel()).hours.toFixed(1)}h saved` },
-          { label: "Output tokens", value: fmt(o.output_tokens), sub: "generated" },
-          { label: "Input+cache", value: fmt(o.input_tokens + o.cache_read_tokens), sub: "processed (incl. cache)" },
+          { label: "Output tokens", value: fmt(o.output_tokens), sub: "tokens generated" },
+          { label: "Input+cache", value: fmt(o.input_tokens + o.cache_read_tokens), sub: "tokens (incl. cache)" },
           { label: "Total tokens", value: fmt(o.total_tokens), sub: "incl. cache re-reads" },
         ]} />
       )}
@@ -49,7 +49,7 @@ export function ProjectOverview() {
         <table>
           <thead>
             <tr>
-              <th>title</th><th>day</th><th>duration</th><th>prompts</th><th>tools</th><th>total tokens</th>
+              <th>title</th><th>day</th><th>duration</th><th>prompts</th><th>tools</th><th>total (tok)</th>
             </tr>
           </thead>
           <tbody>

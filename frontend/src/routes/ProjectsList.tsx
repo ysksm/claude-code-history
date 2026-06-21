@@ -68,7 +68,7 @@ export function ProjectsList() {
         <table>
           <thead>
             <tr>
-              <th></th><th>project</th><th>sessions</th><th>tool calls</th><th>code</th><th>output</th><th>total tokens</th>
+              <th></th><th>project</th><th>sessions</th><th>tool calls</th><th>code (lines)</th><th>output (tok)</th><th>total (tok)</th>
             </tr>
           </thead>
           <tbody>

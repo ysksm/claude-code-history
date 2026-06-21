@@ -20,7 +20,7 @@ const METRICS: [string, (m: SessionMeta) => string][] = [
   ["Tool calls", (m) => fmt(m.tools)],
   ["Subagent msgs", (m) => fmt(m.n_subagent_msgs)],
   ["Output tokens", (m) => fmt(m.output_tokens)],
-  ["Input+cache", (m) => fmt(m.input_tokens + m.cache_read)],
+  ["Input+cache (tok)", (m) => fmt(m.input_tokens + m.cache_read)],
   ["Total tokens", (m) => fmt(m.total_tokens)],
   ["Models", (m) => m.models ?? ""],
 ];

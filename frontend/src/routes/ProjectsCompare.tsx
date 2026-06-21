@@ -59,7 +59,7 @@ export function ProjectsCompare() {
                 ["Prompts", (o: Overview) => o.prompts],
                 ["Tool calls", (o: Overview) => o.tool_calls],
                 ["Output tokens", (o: Overview) => o.output_tokens],
-                ["Input+cache", (o: Overview) => o.input_tokens + o.cache_read_tokens],
+                ["Input+cache (tok)", (o: Overview) => o.input_tokens + o.cache_read_tokens],
                 ["Total tokens", (o: Overview) => o.total_tokens],
               ] as [string, (o: Overview) => number][]).map(([label, get]) => (
                 <tr key={label}>
@@ -87,7 +87,7 @@ export function ProjectsCompare() {
             { label: "Tool calls", value: fmt(c.tool_calls), sub: `${fmt(c.plugin_tool_calls)} via plugins · ${fmt(c.subagent_calls)} subagent` },
             { label: "Code changes", value: <DiffStat added={c.code_added} removed={c.code_removed} />, sub: "lines (Write+Edit)" },
             { label: "Output tokens", value: fmt(c.output_tokens), sub: "generated" },
-            { label: "Input+cache", value: fmt(c.input_tokens + c.cache_read_tokens), sub: "processed (incl. cache)" },
+            { label: "Input+cache", value: fmt(c.input_tokens + c.cache_read_tokens), sub: "tokens (incl. cache)" },
             { label: "Total tokens", value: fmt(c.total_tokens), sub: "incl. cache re-reads" },
           ]} />
         );
